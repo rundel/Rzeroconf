@@ -1,0 +1,16 @@
+Package: Rzeroconf
+Type: Package
+Title: R package providing the zeroconf functionality to R
+Version: 0.0.0
+Date: 2018-10-23
+Author: Colin Rundel
+Maintainer: Colin Rundel <rundel@gmail.com>
+Description: Based on the servus library from https://github.com/HBPVIS/Servus
+License: LGPL (>= 2)
+LazyLoad: yes
+LinkingTo: Rcpp
+Imports: Rcpp (>= 0.11.0)
+URL: http://www.github.com/rundel/Rzeroconf
+BugReports: http://www.github.com/rundel/Rzeroconf/issues
+RoxygenNote: 6.1.0
+SystemRequirements: C++11

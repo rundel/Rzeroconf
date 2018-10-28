@@ -1,0 +1,6 @@
+^\.git
+^.*\.Rproj$
+^\.Rproj\.user$
+\.Rprofile
+\.gitignore
+autom4te\.cache

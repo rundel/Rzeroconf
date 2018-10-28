@@ -1,0 +1,12 @@
+autom4te.cache/
+.Rproj.user
+.Rprofile
+.Rhistory
+.RData
+src/*.o
+src/*.so
+src/*.dll
+configure
+config.log
+inst/include
+config.status
