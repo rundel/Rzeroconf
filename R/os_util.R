@@ -26,10 +26,6 @@ get_avahi = function(method = c("browse", "resolve", "publish")) {
       call. = FALSE
     )
   }
-}
-
-
-check_cmd = function(cmd) {
-  cmd = strsplit(cmd, " ")[[1]][1]
-  processx::run("which", cmd, error_on_status = FALSE)
+  
+  cmd
 }

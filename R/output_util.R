@@ -6,7 +6,7 @@ parse_dnssd = function(output, col_names) {
 
 parse_avahi = function(output, col_names) {
   if (is.null(output)) return(NULL)
-  readr::read_delim(output, delim=";")
+  readr::read_delim(output, delim=";", col_names = col_names)
 }
 
 output_skip = function(output, n=0) {
