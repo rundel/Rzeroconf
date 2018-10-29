@@ -4,7 +4,7 @@
 \name{Rzeroconf-package}
 \alias{Rzeroconf}
 \alias{Rzeroconf-package}
-\title{libgeos}
+\title{Rzeroconf}
 \description{
 Based on the servus library from https://github.com/HBPVIS/Servus
 }

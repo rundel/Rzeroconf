@@ -1,8 +1,0 @@
-CXX_STD = CXX11
-PKG_CPPFLAGS=-DUSE_DNSSD=1
-PKG_LIBS=
-
-all: clean
-
-clean:
-	rm -f $(SHLIB) $(OBJECTS)
