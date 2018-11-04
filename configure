@@ -1,0 +1,55 @@
+#!/bin/bash
+# Anticonf (tm) script by Jeroen Ooms (2017)
+# INCLUDE_DIR and LIB_DIR manually via e.g:
+# R CMD INSTALL --configure-vars='INCLUDE_DIR=/.../include LIB_DIR=/.../lib'
+
+PKG_DEB_NAME="libavahi-client-dev"
+PKG_RPM_NAME="avahi-devel"
+
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  PKG_LIBS=""
+  PKG_CFLAGS="-DUSE_DNSSD=1"
+  PKG_TEST_HEADER="<dns_sd.h>"
+else
+  PKG_LIBS="-lavahi-common -lavahi-client"
+  PKG_CFLAGS=""
+  PKG_TEST_HEADER="<avahi-client/client.h>"
+fi
+
+# Check for INCLUDE and LIB
+if [ "$INCLUDE_DIR" ] || [ "$LIB_DIR" ]; then
+  echo "Found INCLUDE_DIR and/or LIB_DIR!"
+  PKG_CFLAGS="-I$INCLUDE_DIR $PKG_CFLAGS"
+  PKG_LIBS="-L$LIB_DIR $PKG_LIBS"
+fi
+
+# For debugging
+echo "Using PKG_CFLAGS=$PKG_CFLAGS"
+echo "Using PKG_LIBS=$PKG_LIBS"
+
+# Find compiler
+
+R_HOME=$(R RHOME)
+
+CXXCPP=$(${R_HOME}/bin/R CMD config CXXCPP)
+CXXFLAGS=$(${R_HOME}/bin/R CMD config CXXFLAGS)
+CPPFLAGS=$(${R_HOME}/bin/R CMD config CPPFLAGS)
+
+# Test for appropriate header
+echo "#include $PKG_TEST_HEADER" | ${CXXCPP} ${CPPFLAGS} ${PKG_CFLAGS} ${CXXFLAGS} -xc++ - >/dev/null 2>&1
+if [ $? -ne 0 ]; then
+  echo "------------------------- ANTICONF ERROR ---------------------------"
+  echo "Configuration failed because $PKG_CONFIG_NAME was not found. Try installing:"
+  echo " * deb: $PKG_DEB_NAME (Debian, Ubuntu)"
+  echo " * rpm: $PKG_RPM_NAME (Fedora, EPEL)"
+  echo "To use an alternative library / header location, set INCLUDE_DIR and LIB_DIR manually via:"
+  echo "R CMD INSTALL --configure-vars='INCLUDE_DIR=... LIB_DIR=...'"
+  echo "--------------------------------------------------------------------"
+  exit 1;
+fi
+
+# Write to Makevars
+sed -e "s|@cflags@|$PKG_CFLAGS|" -e "s|@libs@|$PKG_LIBS|" src/Makevars.in > src/Makevars
+
+# Success
+exit 0
