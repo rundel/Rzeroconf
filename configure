@@ -1,19 +1,19 @@
 #!/bin/bash
-# Anticonf (tm) script by Jeroen Ooms (2017)
-# INCLUDE_DIR and LIB_DIR manually via e.g:
-# R CMD INSTALL --configure-vars='INCLUDE_DIR=/.../include LIB_DIR=/.../lib'
+# Based on Jeroen Ooms's Anticonf scripts
 
-PKG_DEB_NAME="libavahi-client-dev"
-PKG_RPM_NAME="avahi-devel"
+PKG_CONFIG_NAME="dns_sd"
+
+PKG_DEB_NAME="libavahi-compat-libdnssd-dev"
+PKG_RPM_NAME="avahi-compat-libdns_sd-devel"
+
+PKG_TEST_HEADER="<dns_sd.h>"
+PKG_LIBS="-ldns_sd"
+PKG_CFLAGS=""
 
 if [[ "$OSTYPE" == "darwin"* ]]; then
-  PKG_LIBS=""
-  PKG_CFLAGS="-DUSE_DNSSD=1"
-  PKG_TEST_HEADER="<dns_sd.h>"
+
 else
-  PKG_LIBS="-lavahi-common -lavahi-client"
-  PKG_CFLAGS=""
-  PKG_TEST_HEADER="<avahi-client/client.h>"
+
 fi
 
 # Check for INCLUDE and LIB
