@@ -5,20 +5,22 @@
 
 using namespace Rcpp;
 
-// discover
-void discover(std::string name, unsigned time);
-RcppExport SEXP _Rzeroconf_discover(SEXP nameSEXP, SEXP timeSEXP) {
+// browse
+Rcpp::DataFrame browse(std::string const type, std::string const domain, unsigned wait);
+RcppExport SEXP _Rzeroconf_browse(SEXP typeSEXP, SEXP domainSEXP, SEXP waitSEXP) {
 BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< std::string >::type name(nameSEXP);
-    Rcpp::traits::input_parameter< unsigned >::type time(timeSEXP);
-    discover(name, time);
-    return R_NilValue;
+    Rcpp::traits::input_parameter< std::string const >::type type(typeSEXP);
+    Rcpp::traits::input_parameter< std::string const >::type domain(domainSEXP);
+    Rcpp::traits::input_parameter< unsigned >::type wait(waitSEXP);
+    rcpp_result_gen = Rcpp::wrap(browse(type, domain, wait));
+    return rcpp_result_gen;
 END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_Rzeroconf_discover", (DL_FUNC) &_Rzeroconf_discover, 2},
+    {"_Rzeroconf_browse", (DL_FUNC) &_Rzeroconf_browse, 3},
     {NULL, NULL, 0}
 };
 

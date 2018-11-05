@@ -2,7 +2,7 @@
 # Generator token: 10BE3573-1514-4C36-9D1C-5A225CD40393
 
 #' @export
-discover <- function(name = "_http._tcp", time = 5000L) {
-    invisible(.Call(`_Rzeroconf_discover`, name, time))
+browse <- function(type = "_http._tcp", domain = "local", wait = 500L) {
+    .Call(`_Rzeroconf_browse`, type, domain, wait)
 }
 
