@@ -7,7 +7,7 @@
 #include <net/if.h>
 #include <arpa/inet.h>
 
-// [[Rcpp::plugins(cpp14)]]
+// [[Rcpp::plugins(cpp11)]]
 
 class get_addr_info {
   DNSServiceRef client;
