@@ -5,6 +5,8 @@
 #include <mutex>
 #include <thread>
 #include <chrono>
+#include <atomic>
+
 #include <net/if.h>
 #include <arpa/inet.h>
 #include <netdb.h>
