@@ -10,6 +10,9 @@
 #include <net/if.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+
 
 // [[Rcpp::plugins(cpp14)]]
 
@@ -20,7 +23,8 @@ class resolver {
 public:
   Rcpp::List txt_record;
   std::string hostname;
-  std::string ip;
+  //std::string ip;
+  Rcpp::CharacterVector ip;
   uint32_t iface;
   uint16_t port;
   uint16_t uport; 
@@ -72,16 +76,51 @@ private:
     res->hostname = hosttarget;
     //res->txt_record = txt_record_to_vector(txtLen, txtRecord);
     res->txt_record = Rcpp::CharacterVector();
-    std::this_thread::sleep_for(std::chrono::seconds(1));
-    //res->ip = get_addr_info(iface, hosttarget).ip;
     
-    hostent* h = gethostbyname(hosttarget);
-    if (h != NULL) {
-      res->ip = inet_ntoa(*(in_addr*) h->h_addr_list[0]);
-    } else {
-      res->ip = Rcpp::String(NA_STRING);
+    
+    //hostent* h = gethostbyname(hosttarget);
+    //if (h != NULL) {
+    //  res->ip = inet_ntoa(*(in_addr*) h->h_addr_list[0]);
+    //} else {
+    //  res->ip = Rcpp::String(NA_STRING);
+    //}
+    
+    addrinfo hints, *addrs, *p;
+    int status;
+    
+
+    memset(&hints, 0, sizeof hints);
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+    
+    if (getaddrinfo(hosttarget, NULL, &hints, &addrs) != 0) {
+      throw std::runtime_error("opps");
     }
+    
+    
+    for(addrinfo* p = addrs; p != NULL; p = p->ai_next) {
+      //inet_ntop (p->ai_family, p->ai_addr->sa_data, ip, sizeof(ip));
+      
+      void *ptr;
+      char ip[INET6_ADDRSTRLEN];
+      
+      switch (p->ai_family) {
+        case AF_INET:
+          ptr = &((sockaddr_in  *) p->ai_addr)->sin_addr;
+          break;
+        case AF_INET6:
+          ptr = &((sockaddr_in6 *) p->ai_addr)->sin6_addr;
+          break;
+        default:
+          throw std::runtime_error("opps");
+      }
+      
+      inet_ntop(p->ai_family, ptr, ip, sizeof(ip));
+      res->ip.push_back(ip);
+    }
+    
   }
+  
   
   
   // Based on https://github.com/pocoproject/poco-dnssd/blob/master/Bonjour/src/BonjourBrowserImpl.cpp
@@ -184,7 +223,8 @@ class zc_browser {
   std::list<std::string> type;
   std::list<std::string> domain;
   std::list<std::string> hostname;
-  std::list<std::string> ip;
+  //std::list<std::string> ip;
+  Rcpp::List             ip;
   std::list<int>         port;
   Rcpp::List             txt_record;
    

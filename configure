@@ -14,7 +14,7 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
   PKG_LIBS=""
 else
   PKG_LIBS="-ldns_sd"
-  PKG_CFLAGS="-I/usr/include/avahi-compat-libdns_sd/"
+  PKG_CFLAGS=""
 fi
 
 # Check for INCLUDE and LIB
