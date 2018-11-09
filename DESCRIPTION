@@ -9,8 +9,9 @@ Description: Based on the servus library from https://github.com/HBPVIS/Servus
 License: LGPL (>= 2)
 LazyLoad: yes
 LinkingTo: Rcpp
+Depends: tibble
 Imports: Rcpp (>= 0.11.0)
 URL: http://www.github.com/rundel/Rzeroconf
 BugReports: http://www.github.com/rundel/Rzeroconf/issues
 RoxygenNote: 6.1.0
-SystemRequirements: C++11
+SystemRequirements: C++14

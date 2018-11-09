@@ -6,3 +6,13 @@ browse <- function(type = "_http._tcp", domain = "local", wait = 500L) {
     .Call(`_Rzeroconf_browse`, type, domain, wait)
 }
 
+#' @export
+create_browser <- function(type, domain = "local") {
+    .Call(`_Rzeroconf_create_browser`, type, domain)
+}
+
+#' @export
+get_browser_results <- function(b) {
+    .Call(`_Rzeroconf_get_browser_results`, b)
+}
+

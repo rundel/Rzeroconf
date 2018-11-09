@@ -1,10 +1,13 @@
 #include <Rcpp.h>
+
 #include <dns_sd.h>
+
 #include <thread>
 #include <chrono>
-
 #include <net/if.h>
 #include <arpa/inet.h>
+
+// [[Rcpp::plugins(cpp14)]]
 
 class get_addr_info {
   DNSServiceRef client;
@@ -139,111 +142,186 @@ private:
     res->flags = flags;
     res->iface = iface;
     res->hostname = hosttarget;
-    if (txtLen > 1)
-      res->txt_record = txt_record_to_string(txtLen, txtRecord);
-    else
-      res->txt_record = Rcpp::List();
-    
+    res->txt_record = txt_record_to_vector(txtLen, txtRecord);
+    //res->txt_record = Rcpp::CharacterVector();
+    std::this_thread::sleep_for(std::chrono::seconds(1));
     res->ip = get_addr_info(iface, hosttarget).ip;
   }
   
-  static Rcpp::List txt_record_to_string(uint16_t txtLen, const unsigned char *txtRecord)
-  {
-    std::stringstream s;
-    Rcpp::CharacterVector names;
-    Rcpp::List values;
+  
+  // Based on https://github.com/pocoproject/poco-dnssd/blob/master/Bonjour/src/BonjourBrowserImpl.cpp
+  static Rcpp::CharacterVector txt_record_to_vector(uint16_t txtLen, const void *txtRecord) {
+    Rcpp::CharacterVector keys;
+    Rcpp::CharacterVector values;
     
+    uint16_t n = TXTRecordGetCount(txtLen, txtRecord);
+    Rcpp::Rcout << "Found n=" << n << "\n";
     
-    const unsigned char *ptr = txtRecord;
-    const unsigned char *max = txtRecord + txtLen;
-    
-    while (ptr < max) {
-      const unsigned char *const end = ptr + 1 + ptr[0];
-      if (end > max) { 
-        throw std::runtime_error("Invalid data in txt record"); 
+    for(uint16_t i = 0; i < n; ++i) {
+      Rcpp::Rcout << "i=" << i << "\n";
+      
+      char key_buffer[256];
+      char *value_ptr;
+      uint8_t value_length;
+      
+      DNSServiceErrorType result = TXTRecordGetItemAtIndex(
+        txtLen, txtRecord, i, sizeof(key_buffer), key_buffer, 
+        &value_length, (const void**) &value_ptr
+      );
+      
+      if (result != kDNSServiceErr_NoError) {
+        Rcpp::warning("Invalid data in txt record");
+        continue;
       }
-      ptr++;
       
-      s.str(std::string());
-      
-      while (ptr<end) {
-        if (*ptr == '=') {
-          names.push_back(s.str()); 
-          s.str(std::string());     // Reset stringstream     
-        } else {
-          s << *ptr; 
-        }
+      std::string key = key_buffer;
+      //std::string value = std::string(value_ptr, value_length);
         
-        ptr++;
-      }
-      values.push_back(s.str());
+      //keys.push_back(key);
+      //values.push_back("test");
+      //values.push_back( std::string( );
+      
+      Rcpp::Rcout << "key    : " << key << "\n" 
+                  << "val_len: " << (unsigned) value_length << "\n"
+                  << "value  : " << value_ptr << "\n";
     }
     
-    values.names() = names;
+    //values.names() = keys;
     return values;
   }
+  
+  //static Rcpp::List txt_record_to_string(uint16_t txtLen, const unsigned char *txtRecord)
+  //{
+  //  std::stringstream s;
+  //  Rcpp::CharacterVector names;
+  //  Rcpp::List values;
+  //  
+  //  
+  //  const unsigned char *ptr = txtRecord;
+  //  const unsigned char *max = txtRecord + txtLen;
+  //  
+  //  while (ptr < max) {
+  //    const unsigned char *const end = ptr + 1 + ptr[0];
+  //    if (end > max) { 
+  //      throw std::runtime_error("Invalid data in txt record"); 
+  //    }
+  //    ptr++;
+  //    
+  //    s.str(std::string());
+  //    
+  //    bool found_name = false;
+  //    while (ptr<end) {
+  //      if (*ptr == '=') {
+  //        found+name = true;
+  //        names.push_back(s.str()); 
+  //        s.str(std::string());     // Reset stringstream     
+  //      } else {
+  //        s << *ptr; 
+  //      }
+  //      
+  //      ptr++;
+  //    }
+  //    values.push_back(s.str());
+  //    if (!found_name)
+  //  }
+  //  
+  //  values.names() = names;
+  //  return values;
+  //}
 };
 
-class browser {
+
+
+class zc_browser {
   DNSServiceRef client;
   std::mutex data;
   
-  Rcpp::IntegerVector   iface;
-  Rcpp::CharacterVector iface_name;
-  Rcpp::CharacterVector name;
-  Rcpp::CharacterVector type;
-  Rcpp::CharacterVector domain;
-  Rcpp::CharacterVector hostname;
-  Rcpp::CharacterVector ip;
-  Rcpp::IntegerVector   port;
-  Rcpp::List            txt_record;
+  std::atomic<bool> stop_thread;
+  std::thread       poll_thread;
   
+  std::string browse_type;
+  std::string browse_domain;
+  
+  std::list<std::string> op;
+  std::list<int>         iface;
+  std::list<std::string> iface_name;
+  std::list<std::string> name;
+  std::list<std::string> type;
+  std::list<std::string> domain;
+  std::list<std::string> hostname;
+  std::list<std::string> ip;
+  std::list<int>         port;
+  Rcpp::List             txt_record;
+   
 public:
-  browser() {
-    
+  zc_browser(std::string const& type, std::string const& domain = "local") 
+  : browse_type(type),
+    browse_domain(domain),
+    stop_thread(false),
+    poll_thread()
+  { 
+    DNSServiceBrowse(&client, 0, 0, browse_type.c_str(), browse_domain.c_str(), browse_reply, this);
+    poll_thread = std::thread(&zc_browser::poll_dnssd, this);
   }
   
-  ~browser() {
+  ~zc_browser() {
     if (client) 
       DNSServiceRefDeallocate(client);
+    
+    stop_thread = true;
+    poll_thread.join();
   }
   
-  void update(std::string const& type, std::string const& domain, unsigned wait) {
-    DNSServiceFlags flags = 0;
-    DNSServiceErrorType err = kDNSServiceErr_NoError;
-    err = DNSServiceBrowse(&client, flags, 0, type.c_str(), domain.c_str(), browse_reply, this);
-    std::this_thread::sleep_for(std::chrono::milliseconds(wait));
-    err = DNSServiceProcessResult(client);
+  
+  
+  void poll_dnssd() {
+
+    int dns_sd_fd = DNSServiceRefSockFD(client);
+    int nfds      = dns_sd_fd + 1;
+    fd_set readfds;
+    timeval tv;
+    
+    while (!stop_thread) {
+      FD_ZERO(&readfds);
+      FD_SET(dns_sd_fd, &readfds);
+      
+      tv.tv_sec  = 1;
+      tv.tv_usec = 0;
+      
+      int result = select(nfds, &readfds, (fd_set*)NULL, (fd_set*)NULL, &tv);
+      if (result == 1) {
+        if (FD_ISSET(dns_sd_fd, &readfds)) {
+          DNSServiceProcessResult(client);
+        }
+      }
+    }
   }
   
-  Rcpp::DataFrame get_responses() {
+  Rcpp::List get_responses() {
     
-    Rcpp::DataFrame df;
+    std::lock_guard<std::mutex> guard(data);
     
-    df.push_back(iface);
-    df.push_back(iface_name);
-    df.push_back(name);
-    df.push_back(type);
-    df.push_back(domain);
-    df.push_back(hostname);
-    df.push_back(ip);
-    df.push_back(port);
-    df.push_back(txt_record);
+    Rcpp::List d = Rcpp::List::create(
+      Rcpp::Named("op")             = op,
+      Rcpp::Named("interface")      = iface,
+      Rcpp::Named("interface_name") = iface_name,
+      Rcpp::Named("name")           = name,
+      Rcpp::Named("type")           = type,
+      Rcpp::Named("domain")         = domain,
+      Rcpp::Named("hostname")       = hostname,
+      Rcpp::Named("ip")             = ip,
+      Rcpp::Named("port")           = port,
+      Rcpp::Named("txt_record")     = txt_record
+    );  
     
-    int n = iface.size();
-    Rcpp::IntegerVector row_names(n);
-    std::iota(row_names.begin(), row_names.end(), 1);
+    std::vector<int> row_names(op.size());
+    if (op.size() != 0)
+      std::iota(row_names.begin(), row_names.end(), 1);
     
-    df.names() = Rcpp::CharacterVector::create(
-      "interface", "interface_name", 
-      "name", "type", "domain", 
-      "hostname", "ip", "port", 
-      "txt_record"
-    );
-    df.attr("class") = Rcpp::CharacterVector::create("tbl_df", "tbl", "data.frame");
-    df.attr("row.names") = row_names;
+    d.attr("class") = Rcpp::CharacterVector::create("tbl_df", "tbl", "data.frame");
+    d.attr("row.names") = row_names;
     
-    return df;
+    return d;
   }
   
 private:
@@ -251,7 +329,7 @@ private:
                            uint32_t if_index, DNSServiceErrorType error_code,
                            const char* name, const char* type, const char* domain, void* context)
   {
-    browser* b = static_cast<browser*>(context);
+    zc_browser* b = static_cast<zc_browser*>(context);
     
     bool add = (flags & kDNSServiceFlagsAdd);
     std::string op = add ? "Add" : "Remove";
@@ -264,12 +342,11 @@ private:
     std::lock_guard<std::mutex> guard(b->data);
     
     char if_name[IF_NAMESIZE];
-    if (if_indextoname(if_index, if_name) != NULL)
-      b->iface_name.push_back(if_name);
-    else
-      b->iface_name.push_back(std::string());
+    if_indextoname(if_index, if_name);
     
+    b->op.push_back(op);
     b->iface.push_back(if_index);
+    b->iface_name.push_back(if_name);
     b->name.push_back(name); 
     b->type.push_back(type);
     b->domain.push_back(domain);
@@ -286,11 +363,27 @@ private:
 
 //' @export
 // [[Rcpp::export]]
-Rcpp::DataFrame browse(std::string const type = "_http._tcp", std::string const domain = "local", unsigned wait=500)
+Rcpp::List browse(std::string const& type = "_http._tcp", std::string const& domain = "local", unsigned wait=500)
 {
-  browser b;
-  b.update(type, domain, wait);
+  zc_browser b(type, domain);
+  std::this_thread::sleep_for(std::chrono::milliseconds(wait));
+  //b.update();
   
   return b.get_responses();
 }
+
+//' @export
+// [[Rcpp::export]]
+Rcpp::XPtr<zc_browser> create_browser(std::string const& type, std::string const& domain = "local") {
+  return Rcpp::XPtr<zc_browser>(new zc_browser(type, domain), true);
+}
+
+
+
+//' @export
+// [[Rcpp::export]]
+Rcpp::DataFrame get_browser_results(Rcpp::XPtr<zc_browser> b) {
+  return b->get_responses();
+}
+
 
