@@ -7,84 +7,9 @@
 #include <chrono>
 #include <net/if.h>
 #include <arpa/inet.h>
+#include <netdb.h>
 
 // [[Rcpp::plugins(cpp14)]]
-
-class get_addr_info {
-  DNSServiceRef client;
-  std::mutex data;
-  
-public:
-  std::string hostname;
-  std::string ip;
-  
-  get_addr_info(uint32_t iface, const char* hostname, bool ipv4 = true, unsigned wait = 50) {
-    DNSServiceFlags flags = 0;
-    DNSServiceErrorType err;
-    
-    DNSServiceProtocol protocol = ipv4 ? kDNSServiceProtocol_IPv4 : kDNSServiceProtocol_IPv6;
-    
-    err = DNSServiceGetAddrInfo(&client, flags, iface, protocol, hostname, get_addr_info_reply, this);
-    std::this_thread::sleep_for(std::chrono::milliseconds(wait));
-    err = DNSServiceProcessResult(client);
-  }
-  
-  ~get_addr_info() {
-    if (client) 
-      DNSServiceRefDeallocate(client);
-  }
-  
-private:
-  
-  static void get_addr_info_reply
-  (
-      DNSServiceRef sdRef,
-      const DNSServiceFlags flags,
-      uint32_t iface,
-      DNSServiceErrorType error_code,
-      const char *hostname,
-      const struct sockaddr *address,
-      uint32_t ttl,
-      void  *context
-  ) {
-    
-    get_addr_info* g = static_cast<get_addr_info*>(context);
-    
-    if (error_code) {
-      std::stringstream s;
-      s << "Error code: " << error_code;
-      throw std::runtime_error(s.str());
-    }
-    
-    std::lock_guard<std::mutex> guard(g->data);
-    
-    g->hostname = hostname;
-    g->ip = get_ip(address);
-  }
-  
-  // Based on https://beej.us/guide/bgnet/html/multi/inet_ntopman.html
-  static std::string get_ip(const sockaddr* sa)
-  {
-    char ip[INET6_ADDRSTRLEN];
-    
-    switch(sa->sa_family) {
-    case AF_INET:
-      inet_ntop(AF_INET, &(((sockaddr_in *)sa)->sin_addr), ip, INET_ADDRSTRLEN);
-      break;
-      
-    case AF_INET6:
-      inet_ntop(AF_INET6, &(((sockaddr_in6 *)sa)->sin6_addr), ip, INET6_ADDRSTRLEN);
-      break;
-      
-    default:
-      throw std::runtime_error("Unknown AF family");
-    }
-    
-    return std::string(ip);
-  }
-};
-
-
 
 class resolver {
   DNSServiceRef client;
@@ -143,10 +68,17 @@ private:
     res->flags = flags;
     res->iface = iface;
     res->hostname = hosttarget;
-    res->txt_record = txt_record_to_vector(txtLen, txtRecord);
-    //res->txt_record = Rcpp::CharacterVector();
+    //res->txt_record = txt_record_to_vector(txtLen, txtRecord);
+    res->txt_record = Rcpp::CharacterVector();
     std::this_thread::sleep_for(std::chrono::seconds(1));
-    res->ip = get_addr_info(iface, hosttarget).ip;
+    //res->ip = get_addr_info(iface, hosttarget).ip;
+    
+    hostent* h = gethostbyname(hosttarget);
+    if (h != NULL) {
+      res->ip = inet_ntoa(*(in_addr*) h->h_addr_list[0]);
+    } else {
+      res->ip = Rcpp::String(NA_STRING);
+    }
   }
   
   
