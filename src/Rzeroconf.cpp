@@ -2,6 +2,7 @@
 
 #include <dns_sd.h>
 
+#include <mutex>
 #include <thread>
 #include <chrono>
 #include <net/if.h>
