@@ -10,8 +10,8 @@ License: LGPL (>= 2)
 LazyLoad: yes
 LinkingTo: Rcpp
 Depends: tibble
-Imports: Rcpp (>= 0.11.0)
+Imports: Rcpp (>= 0.11.0), BH
 URL: http://www.github.com/rundel/Rzeroconf
 BugReports: http://www.github.com/rundel/Rzeroconf/issues
-RoxygenNote: 6.1.0
+RoxygenNote: 6.1.1
 SystemRequirements: C++14

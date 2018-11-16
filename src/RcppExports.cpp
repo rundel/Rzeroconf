@@ -6,28 +6,15 @@
 
 using namespace Rcpp;
 
-// browse
-Rcpp::List browse(std::string const& type, std::string const& domain, unsigned wait);
-RcppExport SEXP _Rzeroconf_browse(SEXP typeSEXP, SEXP domainSEXP, SEXP waitSEXP) {
+// browse_service
+Rcpp::XPtr<zc_browser> browse_service(std::string const& type, std::string const& domain);
+RcppExport SEXP _Rzeroconf_browse_service(SEXP typeSEXP, SEXP domainSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< std::string const& >::type type(typeSEXP);
     Rcpp::traits::input_parameter< std::string const& >::type domain(domainSEXP);
-    Rcpp::traits::input_parameter< unsigned >::type wait(waitSEXP);
-    rcpp_result_gen = Rcpp::wrap(browse(type, domain, wait));
-    return rcpp_result_gen;
-END_RCPP
-}
-// create_browser
-Rcpp::XPtr<zc_browser> create_browser(std::string const& type, std::string const& domain);
-RcppExport SEXP _Rzeroconf_create_browser(SEXP typeSEXP, SEXP domainSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< std::string const& >::type type(typeSEXP);
-    Rcpp::traits::input_parameter< std::string const& >::type domain(domainSEXP);
-    rcpp_result_gen = Rcpp::wrap(create_browser(type, domain));
+    rcpp_result_gen = Rcpp::wrap(browse_service(type, domain));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -42,11 +29,26 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// register_service
+Rcpp::XPtr<zc_register> register_service(std::string const& name, std::string const& type, std::string const& domain, uint16_t port, Rcpp::List txt_record);
+RcppExport SEXP _Rzeroconf_register_service(SEXP nameSEXP, SEXP typeSEXP, SEXP domainSEXP, SEXP portSEXP, SEXP txt_recordSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< std::string const& >::type name(nameSEXP);
+    Rcpp::traits::input_parameter< std::string const& >::type type(typeSEXP);
+    Rcpp::traits::input_parameter< std::string const& >::type domain(domainSEXP);
+    Rcpp::traits::input_parameter< uint16_t >::type port(portSEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type txt_record(txt_recordSEXP);
+    rcpp_result_gen = Rcpp::wrap(register_service(name, type, domain, port, txt_record));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_Rzeroconf_browse", (DL_FUNC) &_Rzeroconf_browse, 3},
-    {"_Rzeroconf_create_browser", (DL_FUNC) &_Rzeroconf_create_browser, 2},
+    {"_Rzeroconf_browse_service", (DL_FUNC) &_Rzeroconf_browse_service, 2},
     {"_Rzeroconf_get_browser_results", (DL_FUNC) &_Rzeroconf_get_browser_results, 1},
+    {"_Rzeroconf_register_service", (DL_FUNC) &_Rzeroconf_register_service, 5},
     {NULL, NULL, 0}
 };
 

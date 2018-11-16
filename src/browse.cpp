@@ -1,3 +1,6 @@
+// [[Rcpp::plugins(cpp14)]]
+// [[Rcpp::depends(BH)]]
+
 #include <Rcpp.h>
 
 #include <dns_sd.h>
@@ -13,15 +16,19 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 
+#include <boost/format.hpp>
 
-// [[Rcpp::plugins(cpp14)]]
+#include "dns_sd_util.hpp"
+
+
+
 
 class resolver {
   DNSServiceRef client;
   std::mutex data;
   
 public:
-  Rcpp::List txt_record;
+  Rcpp::CharacterVector txt_record;
   std::string hostname;
   //std::string ip;
   Rcpp::CharacterVector ip;
@@ -53,155 +60,97 @@ public:
 private:
   static void resolve_reply(DNSServiceRef sdref, const DNSServiceFlags flags, 
                             uint32_t iface, DNSServiceErrorType error_code,
-                            const char *fullname, const char *hosttarget, uint16_t opaqueport, 
-                            uint16_t txtLen, const unsigned char *txtRecord, void *context)
+                            const char *fullname, const char *hosttarget, uint16_t port, 
+                            uint16_t txt_len, const unsigned char *txt_record, void *context)
   {
     resolver* res = static_cast<resolver*>(context);
     
-    if (error_code == kDNSServiceErr_NoSuchRecord) {
-      throw std::runtime_error("No Such Record");
-    } else if (error_code) {
-      std::stringstream s;
-      s << "Error code: " << error_code;
-      throw std::runtime_error(s.str());
+    if (error_code != kDNSServiceErr_NoError) {
+      Rcpp::warning(boost::str(
+        boost::format("Error during resolve (%s)") % get_service_error_str(error_code)
+      ));
     }
     
     std::lock_guard<std::mutex> guard(res->data);
     
-    union { uint16_t s; u_char b[2]; } port = { opaqueport };
-    res->port = ((uint16_t)port.b[0]) << 8 | port.b[1];
-    
+    res->port = ntohs(port);
     res->flags = flags;
     res->iface = iface;
     res->hostname = hosttarget;
-    //res->txt_record = txt_record_to_vector(txtLen, txtRecord);
-    res->txt_record = Rcpp::CharacterVector();
+    res->txt_record = (txt_len == 0) ? Rcpp::CharacterVector() : txt_record_to_vector(txt_len, txt_record);
+    res->ip = get_ip_address(hosttarget);
+  }
+  
+  static Rcpp::CharacterVector get_ip_address(const char* hostname) {
     
+    Rcpp::CharacterVector ips;
     
-    //hostent* h = gethostbyname(hosttarget);
-    //if (h != NULL) {
-    //  res->ip = inet_ntoa(*(in_addr*) h->h_addr_list[0]);
-    //} else {
-    //  res->ip = Rcpp::String(NA_STRING);
-    //}
-    
-    addrinfo hints, *addrs, *p;
-    int status;
-    
-
+    addrinfo hints;
     memset(&hints, 0, sizeof hints);
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
     
-    if (getaddrinfo(hosttarget, NULL, &hints, &addrs) != 0) {
+    addrinfo *addrs;
+    if (getaddrinfo(hostname, NULL, &hints, &addrs) != 0) {
       throw std::runtime_error("opps");
     }
     
     
     for(addrinfo* p = addrs; p != NULL; p = p->ai_next) {
-      //inet_ntop (p->ai_family, p->ai_addr->sa_data, ip, sizeof(ip));
-      
       void *ptr;
       char ip[INET6_ADDRSTRLEN];
       
       switch (p->ai_family) {
-        case AF_INET:
-          ptr = &((sockaddr_in  *) p->ai_addr)->sin_addr;
-          break;
-        case AF_INET6:
-          ptr = &((sockaddr_in6 *) p->ai_addr)->sin6_addr;
-          break;
-        default:
-          throw std::runtime_error("opps");
+      case AF_INET:
+        ptr = &((sockaddr_in  *) p->ai_addr)->sin_addr;
+        break;
+      case AF_INET6:
+        ptr = &((sockaddr_in6 *) p->ai_addr)->sin6_addr;
+        break;
       }
       
-      inet_ntop(p->ai_family, ptr, ip, sizeof(ip));
-      res->ip.push_back(ip);
+      if(inet_ntop(p->ai_family, ptr, ip, sizeof(ip)))
+        ips.push_back(ip);
     }
     
+    freeaddrinfo(addrs);
+    return ips;
   }
   
-  
-  
-  // Based on https://github.com/pocoproject/poco-dnssd/blob/master/Bonjour/src/BonjourBrowserImpl.cpp
-  static Rcpp::CharacterVector txt_record_to_vector(uint16_t txtLen, const void *txtRecord) {
+  static Rcpp::CharacterVector txt_record_to_vector(uint16_t txt_len, const unsigned char *txt_record) {
     Rcpp::CharacterVector keys;
     Rcpp::CharacterVector values;
     
-    uint16_t n = TXTRecordGetCount(txtLen, txtRecord);
-    Rcpp::Rcout << "Found n=" << n << "\n";
+    uint8_t *p = (uint8_t*)txt_record;
+    uint8_t *end = p + txt_len;
     
-    for(uint16_t i = 0; i < n; ++i) {
-      Rcpp::Rcout << "i=" << i << "\n";
+    while (p < end) {
+      uint8_t *keyval_end = p + 1 + p[0];
       
-      char key_buffer[256];
-      char *value_ptr;
-      uint8_t value_length;
-      
-      DNSServiceErrorType result = TXTRecordGetItemAtIndex(
-        txtLen, txtRecord, i, sizeof(key_buffer), key_buffer, 
-        &value_length, (const void**) &value_ptr
-      );
-      
-      if (result != kDNSServiceErr_NoError) {
-        Rcpp::warning("Invalid data in txt record");
-        continue;
+      if (keyval_end > end) {
+        Rcpp::warning("Bad txt record data");
+        return Rcpp::CharacterVector();
       }
       
-      std::string key = key_buffer;
-      //std::string value = std::string(value_ptr, value_length);
-        
-      //keys.push_back(key);
-      //values.push_back("test");
-      //values.push_back( std::string( );
+      unsigned long len = 0;
+      uint8_t *x = p+1;
       
-      Rcpp::Rcout << "key    : " << key << "\n" 
-                  << "val_len: " << (unsigned) value_length << "\n"
-                  << "value  : " << value_ptr << "\n";
+      while (x+len < keyval_end && x[len] != '=') len++;
+      
+      keys.push_back(std::string((const char *) x, len));
+      if (x+len < keyval_end) { // Found an =
+        values.push_back(std::string((const char *) x + len + 1, p[0] - (len + 1)));
+      } else {
+        values.push_back("");
+      }
+      
+      p += 1 + p[0];
     }
     
-    //values.names() = keys;
+    values.names() = keys;
+    
     return values;
   }
-  
-  //static Rcpp::List txt_record_to_string(uint16_t txtLen, const unsigned char *txtRecord)
-  //{
-  //  std::stringstream s;
-  //  Rcpp::CharacterVector names;
-  //  Rcpp::List values;
-  //  
-  //  
-  //  const unsigned char *ptr = txtRecord;
-  //  const unsigned char *max = txtRecord + txtLen;
-  //  
-  //  while (ptr < max) {
-  //    const unsigned char *const end = ptr + 1 + ptr[0];
-  //    if (end > max) { 
-  //      throw std::runtime_error("Invalid data in txt record"); 
-  //    }
-  //    ptr++;
-  //    
-  //    s.str(std::string());
-  //    
-  //    bool found_name = false;
-  //    while (ptr<end) {
-  //      if (*ptr == '=') {
-  //        found+name = true;
-  //        names.push_back(s.str()); 
-  //        s.str(std::string());     // Reset stringstream     
-  //      } else {
-  //        s << *ptr; 
-  //      }
-  //      
-  //      ptr++;
-  //    }
-  //    values.push_back(s.str());
-  //    if (!found_name)
-  //  }
-  //  
-  //  values.names() = names;
-  //  return values;
-  //}
 };
 
 
@@ -227,48 +176,60 @@ class zc_browser {
   Rcpp::List             ip;
   std::list<int>         port;
   Rcpp::List             txt_record;
-   
+  
 public:
+  
+  zc_browser( const zc_browser& ) = delete; // non construction-copyable
+  zc_browser& operator=( const zc_browser& ) = delete; // non copyable
+  
   zc_browser(std::string const& type, std::string const& domain = "local") 
-  : browse_type(type),
-    browse_domain(domain),
-    stop_thread(false),
-    poll_thread()
+    : browse_type(type),
+      browse_domain(domain),
+      stop_thread(false),
+      poll_thread()
   { 
-    DNSServiceBrowse(&client, 0, 0, browse_type.c_str(), browse_domain.c_str(), browse_reply, this);
-    poll_thread = std::thread(&zc_browser::poll_dnssd, this);
+    DNSServiceErrorType err = DNSServiceBrowse(&client, 0, 0, browse_type.c_str(), browse_domain.c_str(), browse_reply, this);
+    if (err != kDNSServiceErr_NoError) {
+      throw std::runtime_error(
+          boost::str( boost::format("Error creating browser (%s)") % get_service_error_str(err) )
+      );
+    }
+    poll_thread = std::thread(&zc_browser::poll, this); 
   }
   
   ~zc_browser() {
+    stop_thread = true;
+    if (poll_thread.joinable())
+      poll_thread.join();
+    
     if (client) 
       DNSServiceRefDeallocate(client);
-    
-    stop_thread = true;
-    poll_thread.join();
   }
   
   
   
-  void poll_dnssd() {
-
-    int dns_sd_fd = DNSServiceRefSockFD(client);
+  void poll() {
+    
+    int dns_sd_fd = client ? DNSServiceRefSockFD(client) : -1;
     int nfds      = dns_sd_fd + 1;
     fd_set readfds;
     timeval tv;
     
     while (!stop_thread) {
       FD_ZERO(&readfds);
-      FD_SET(dns_sd_fd, &readfds);
+      if (client)
+        FD_SET(dns_sd_fd, &readfds);
       
-      tv.tv_sec  = 1;
-      tv.tv_usec = 0;
+      tv.tv_sec  = 0;
+      tv.tv_usec = 5000;
       
-      int result = select(nfds, &readfds, (fd_set*)NULL, (fd_set*)NULL, &tv);
-      if (result == 1) {
+      if (select(nfds, &readfds, (fd_set*)NULL, (fd_set*)NULL, &tv) > 0) {
         if (FD_ISSET(dns_sd_fd, &readfds)) {
           DNSServiceProcessResult(client);
         }
       }
+      
+      std::this_thread::sleep_for(std::chrono::milliseconds(250));
     }
   }
   
@@ -338,24 +299,15 @@ private:
 
 //' @export
 // [[Rcpp::export]]
-Rcpp::List browse(std::string const& type = "_http._tcp", std::string const& domain = "local", unsigned wait=500)
-{
-  zc_browser b(type, domain);
-  std::this_thread::sleep_for(std::chrono::milliseconds(wait));
-  //b.update();
+Rcpp::XPtr<zc_browser> browse_service(std::string const& type, std::string const& domain = "local") {
+  Rcpp::XPtr<zc_browser> p = Rcpp::XPtr<zc_browser>(new zc_browser(type, domain), true);
+  p.attr("class") = "zc_browser";
   
-  return b.get_responses();
-}
-
-//' @export
-// [[Rcpp::export]]
-Rcpp::XPtr<zc_browser> create_browser(std::string const& type, std::string const& domain = "local") {
-  return Rcpp::XPtr<zc_browser>(new zc_browser(type, domain), true);
+  return p;
 }
 
 
 
-//' @export
 // [[Rcpp::export]]
 Rcpp::DataFrame get_browser_results(Rcpp::XPtr<zc_browser> b) {
   return b->get_responses();

@@ -2,17 +2,16 @@
 # Generator token: 10BE3573-1514-4C36-9D1C-5A225CD40393
 
 #' @export
-browse <- function(type = "_http._tcp", domain = "local", wait = 500L) {
-    .Call(`_Rzeroconf_browse`, type, domain, wait)
+browse_service <- function(type, domain = "local") {
+    .Call(`_Rzeroconf_browse_service`, type, domain)
 }
 
-#' @export
-create_browser <- function(type, domain = "local") {
-    .Call(`_Rzeroconf_create_browser`, type, domain)
-}
-
-#' @export
 get_browser_results <- function(b) {
     .Call(`_Rzeroconf_get_browser_results`, b)
+}
+
+#' @export
+register_service <- function(name, type, domain, port, txt_record) {
+    .Call(`_Rzeroconf_register_service`, name, type, domain, port, txt_record)
 }
 
