@@ -29,6 +29,40 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// avahi_browse_service
+Rcpp::XPtr<avahi_browser> avahi_browse_service(std::string const& type, std::string const& domain);
+RcppExport SEXP _Rzeroconf_avahi_browse_service(SEXP typeSEXP, SEXP domainSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< std::string const& >::type type(typeSEXP);
+    Rcpp::traits::input_parameter< std::string const& >::type domain(domainSEXP);
+    rcpp_result_gen = Rcpp::wrap(avahi_browse_service(type, domain));
+    return rcpp_result_gen;
+END_RCPP
+}
+// avahi_get_results
+Rcpp::List avahi_get_results(Rcpp::XPtr<avahi_browser> ptr);
+RcppExport SEXP _Rzeroconf_avahi_get_results(SEXP ptrSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::XPtr<avahi_browser> >::type ptr(ptrSEXP);
+    rcpp_result_gen = Rcpp::wrap(avahi_get_results(ptr));
+    return rcpp_result_gen;
+END_RCPP
+}
+// avahi_browse_domain
+Rcpp::XPtr<avahi_domain_browser> avahi_browse_domain(std::string const& domain);
+RcppExport SEXP _Rzeroconf_avahi_browse_domain(SEXP domainSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< std::string const& >::type domain(domainSEXP);
+    rcpp_result_gen = Rcpp::wrap(avahi_browse_domain(domain));
+    return rcpp_result_gen;
+END_RCPP
+}
 // register_service
 Rcpp::XPtr<zc_register> register_service(std::string const& name, std::string const& type, std::string const& domain, uint16_t port, Rcpp::List txt_record);
 RcppExport SEXP _Rzeroconf_register_service(SEXP nameSEXP, SEXP typeSEXP, SEXP domainSEXP, SEXP portSEXP, SEXP txt_recordSEXP) {
@@ -48,6 +82,9 @@ END_RCPP
 static const R_CallMethodDef CallEntries[] = {
     {"_Rzeroconf_browse_service", (DL_FUNC) &_Rzeroconf_browse_service, 2},
     {"_Rzeroconf_get_browser_results", (DL_FUNC) &_Rzeroconf_get_browser_results, 1},
+    {"_Rzeroconf_avahi_browse_service", (DL_FUNC) &_Rzeroconf_avahi_browse_service, 2},
+    {"_Rzeroconf_avahi_get_results", (DL_FUNC) &_Rzeroconf_avahi_get_results, 1},
+    {"_Rzeroconf_avahi_browse_domain", (DL_FUNC) &_Rzeroconf_avahi_browse_domain, 1},
     {"_Rzeroconf_register_service", (DL_FUNC) &_Rzeroconf_register_service, 5},
     {NULL, NULL, 0}
 };

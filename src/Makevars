@@ -1,6 +1,6 @@
 CXX_STD = CXX14
 PKG_CPPFLAGS=
-PKG_LIBS=
+PKG_LIBS=-ldns_sd
 
 all: clean
 

@@ -49,6 +49,7 @@ std::string get_service_error_str(DNSServiceErrorType err) {
     return "kDNSServiceErr_DoubleNAT";
   case kDNSServiceErr_BadTime:
     return "kDNSServiceErr_BadTime";
+#ifdef MACDNSSD
   case kDNSServiceErr_BadSig:
     return "kDNSServiceErr_BadSig";
   case kDNSServiceErr_BadKey:
@@ -67,6 +68,7 @@ std::string get_service_error_str(DNSServiceErrorType err) {
     return "kDNSServiceErr_PollingMode";
   case kDNSServiceErr_Timeout:
     return "kDNSServiceErr_Timeout";
+#endif
   }
   return "Invalid error";
 }

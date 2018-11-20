@@ -11,6 +11,21 @@ get_browser_results <- function(b) {
 }
 
 #' @export
+avahi_browse_service <- function(type, domain = "local") {
+    .Call(`_Rzeroconf_avahi_browse_service`, type, domain)
+}
+
+#' @export
+avahi_get_results <- function(ptr) {
+    .Call(`_Rzeroconf_avahi_get_results`, ptr)
+}
+
+#' @export
+avahi_browse_domain <- function(domain = "local") {
+    .Call(`_Rzeroconf_avahi_browse_domain`, domain)
+}
+
+#' @export
 register_service <- function(name, type, domain, port, txt_record) {
     .Call(`_Rzeroconf_register_service`, name, type, domain, port, txt_record)
 }

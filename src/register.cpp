@@ -10,6 +10,8 @@
 #include <chrono>
 #include <atomic>
 
+#include <arpa/inet.h>
+
 #include <boost/format.hpp>
 
 #include "dns_sd_util.hpp"

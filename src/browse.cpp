@@ -21,8 +21,6 @@
 #include "dns_sd_util.hpp"
 
 
-
-
 class resolver {
   DNSServiceRef client;
   std::mutex data;
@@ -45,11 +43,10 @@ public:
   
   resolver(uint32_t iface, const char* name, const char* type, const char* domain, unsigned wait = 50) {
     DNSServiceFlags flags = 0;
-    DNSServiceErrorType err;
     
-    err = DNSServiceResolve(&client, flags, iface, name, type, domain, resolve_reply, this);
+    DNSServiceResolve(&client, flags, iface, name, type, domain, resolve_reply, this);
     std::this_thread::sleep_for(std::chrono::milliseconds(wait));
-    err = DNSServiceProcessResult(client);
+    DNSServiceProcessResult(client);
   }
   
   ~resolver() {
@@ -97,7 +94,7 @@ private:
     
     
     for(addrinfo* p = addrs; p != NULL; p = p->ai_next) {
-      void *ptr;
+      void *ptr = NULL;
       char ip[INET6_ADDRSTRLEN];
       
       switch (p->ai_family) {
@@ -159,12 +156,12 @@ class zc_browser {
   DNSServiceRef client;
   std::mutex data;
   
-  std::atomic<bool> stop_thread;
-  std::thread       poll_thread;
-  
   std::string browse_type;
   std::string browse_domain;
   
+  std::atomic<bool> stop_thread;
+  std::thread       poll_thread;
+
   std::list<std::string> op;
   std::list<int>         iface;
   std::list<std::string> iface_name;

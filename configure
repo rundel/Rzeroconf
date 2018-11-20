@@ -12,6 +12,7 @@ PKG_CFLAGS=""
 
 if [[ "$OSTYPE" == "darwin"* ]]; then
   PKG_LIBS=""
+  PKG_CFLAGS="-DMACDNSSD"
 else
   PKG_LIBS="-ldns_sd"
   PKG_CFLAGS=""
